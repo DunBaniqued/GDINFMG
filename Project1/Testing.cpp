@@ -125,10 +125,32 @@ void updateRow(sqlite3* database, std::string table, std::vector<std::string> co
     }
 }
 
-void deleteRow(sqlite3* database, std::string table, std::vector<std::string> column, int id) {
+void updateAttribute(sqlite3* database, std::string table, std::vector<std::string> column, std::string value, std::string id, int columnNumber) {
+    int i = 0;
+    char* errMsg = 0;
+    std::string update = "UPDATE " + table + " SET";
+
+
+    update += " " + column[columnNumber] + " = " + value;
+    update += " where " + column[0] + " = " + id + ";";
+
+    //SQL query checking
+    //std::cout << update << "\n";
+
+    const char* sql = update.c_str();
+
+    if (sqlite3_exec(database, sql, 0, 0, &errMsg) != SQLITE_OK) {
+        std::cerr << "SQL error: " << errMsg << "\n";
+        sqlite3_free(errMsg);
+    }
+    else {
+    }
+}
+
+void deleteRow(sqlite3* database, std::string table, std::vector<std::string> column, std::string id) {
     char* errMsg = 0;
     std::string dlt = "DELETE From " + table
-                    + " where " + column[0] + " = " + std::to_string(id);
+                    + " where " + column[0] + " = " + id;
 
     const char* sql = dlt.c_str();
 
@@ -141,8 +163,6 @@ void deleteRow(sqlite3* database, std::string table, std::vector<std::string> co
     }
     else {
     }
-
-
 }
 
 static std::string readSqlFile(const std::string& filename) {
@@ -195,7 +215,42 @@ void CreationEntity(sqlite3* database, std::string name) {
         Reset();
     }
 }
-void DeletionEntity() {}
+
+void DeletionEntity(sqlite3* database, std::string name) {
+    char* errMsg = 0;
+    std::string id;
+    std::vector<std::string> values;
+
+    std::string sqlQuery = readSqlFile("Tables/" + name + ".sql");
+    const char* query = sqlQuery.c_str();
+
+    if (sqlite3_exec(database, query, callback, 0, &errMsg) != SQLITE_OK) {
+        std::cerr << "SQL error: " << errMsg << "\n";
+        sqlite3_free(errMsg);
+    }
+    else {
+        std::cout << name << "\n\n";
+        printTable();
+        Reset();
+    }
+
+    std::cout << "Pick ID : ";
+    std::cin >> id;
+
+    system("CLS");
+    deleteRow(database, name, sColumnNames, id);
+
+    if (sqlite3_exec(database, query, callback, 0, &errMsg) != SQLITE_OK) {
+        std::cerr << "SQL error: " << errMsg << "\n";
+        sqlite3_free(errMsg);
+    }
+    else {
+        std::cout << name << "\n\n";
+        printTable();
+        Reset();
+    }
+}
+
 void TeamRegistration(sqlite3* database) {
     CreationEntity(database, "Team");
 }
@@ -205,7 +260,46 @@ void PlayerRegistration(sqlite3* database) {
 void MatchRegistration(sqlite3* database) {
     CreationEntity(database, "Match");
 }
-void MatchDataUpdates() {}
+
+void MatchDataUpdates(sqlite3* database, std::string name) {
+    char* errMsg = 0;
+    std::string id, value;
+    std::vector<std::string> values;
+    int columnNumber;
+
+    std::string sqlQuery = readSqlFile("Tables/" + name + ".sql");
+    const char* query = sqlQuery.c_str();
+
+    if (sqlite3_exec(database, query, callback, 0, &errMsg) != SQLITE_OK) {
+        std::cerr << "SQL error: " << errMsg << "\n";
+        sqlite3_free(errMsg);
+    }
+    else {
+        std::cout << name << "\n\n";
+        printTable();
+        Reset();
+    }
+
+    std::cout << "Pick ID : ";
+    std::cin >> id;
+    std::cout << "Column Number : ";
+    std::cin >> columnNumber;
+    std::cout << "Change to : ";
+    std::cin >> value;
+
+    system("CLS");
+    updateAttribute(database, name, sColumnNames, value, id, columnNumber);
+
+    if (sqlite3_exec(database, query, callback, 0, &errMsg) != SQLITE_OK) {
+        std::cerr << "SQL error: " << errMsg << "\n";
+        sqlite3_free(errMsg);
+    }
+    else {
+        std::cout << name << "\n\n";
+        printTable();
+        Reset();
+    }
+}
 
 int main() {
     sqlite3* database;
@@ -329,7 +423,10 @@ int main() {
                 std::cin >> j;
                 CreationEntity(database, j);
                     break;
-            case 2: DeletionEntity();
+            case 2: 
+                std::cout << "Table Name : ";
+                std::cin >> j;
+                DeletionEntity(database, j);
                     break;
             case 3: TeamRegistration(database);
                     break;
@@ -337,7 +434,10 @@ int main() {
                     break;
             case 5: MatchRegistration(database);
                     break;
-            case 6: MatchDataUpdates();
+            case 6: 
+                std::cout << "Table Name : ";
+                std::cin >> j; 
+                MatchDataUpdates(database, j);
                     break;
             default:
                 break;
