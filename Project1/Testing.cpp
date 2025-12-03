@@ -305,7 +305,7 @@ int main() {
     sqlite3* database;
     char* errMsg = 0;
 
-    if (sqlite3_open("Database/yes.db", &database)) {
+    if (sqlite3_open("Database/E-sports_Tournament.db", &database)) {
         std::cerr << "Can't open DB: " << sqlite3_errmsg(database) << "\n";
         return 1;
     }
@@ -342,6 +342,7 @@ int main() {
         }
         
         std::cout << "\n" << "Reports View" << "\n\n";
+        folderPath = "Reports";
 
         try {
             // Iterate over the entries in the specified directory
@@ -364,6 +365,31 @@ int main() {
         catch (const fs::filesystem_error& e) {
             std::cerr << "Filesystem error: " << e.what() << std::endl;
         }
+
+        std::cout << "\n" << "Tables View" << "\n\n";
+        folderPath = "Tables";
+
+        try {
+            // Iterate over the entries in the specified directory
+            for (const auto& entry : fs::directory_iterator(folderPath)) {
+                // Check if the entry is a regular file
+                if (fs::is_regular_file(entry.path())) {
+                    std::string name = entry.path().filename().string();
+                    for (int i = 0; i < name.size(); ++i) {
+                        if (name[i] == '_')
+                            name[i] = ' ';
+                        if (name[i] == '.')
+                            name.erase(i);
+                    }
+
+                    std::cout << i << ") " << name << "\n";
+                    i++;
+                }
+            }
+        }
+        catch (const fs::filesystem_error& e) {
+            std::cerr << "Filesystem error: " << e.what() << std::endl;
+        }
         
         std::cout << "0) Exit" << "\n\n";
         std::cout << "Number: ";
@@ -376,6 +402,8 @@ int main() {
         else i = 1;
 
         if (std::stoi(j) >= i) {
+            
+            folderPath = "Reports";
             try {
                 // Iterate over the entries in the specified directory
                 for (const auto& entry : fs::directory_iterator(folderPath)) {
@@ -391,6 +419,46 @@ int main() {
                             }
 
                             std::cout << reportName << " Report" << "\n\n";
+                            i++;
+
+                            std::string sqlQuery = readSqlFile(entry.path().string());
+                            const char* query = sqlQuery.c_str();
+
+                            if (sqlite3_exec(database, query, callback, 0, &errMsg) != SQLITE_OK) {
+                                std::cerr << "SQL error: " << errMsg << "\n";
+                                sqlite3_free(errMsg);
+                            }
+                            else {
+                                printTable();
+                                Reset();
+                            }
+
+                            break;
+                        }
+                        i++;
+                    }
+                }
+            }
+            catch (const fs::filesystem_error& e) {
+                std::cerr << "Filesystem error: " << e.what() << std::endl;
+            }
+
+            folderPath = "Tables";
+            try {
+                // Iterate over the entries in the specified directory
+                for (const auto& entry : fs::directory_iterator(folderPath)) {
+                    // Check if the entry is a regular file
+                    if (fs::is_regular_file(entry.path())) {
+                        if (i == std::stoi(j)) {
+                            std::string reportName = entry.path().filename().string();
+                            for (int i = 0; i < reportName.size(); ++i) {
+                                if (reportName[i] == '_')
+                                    reportName[i] = ' ';
+                                if (reportName[i] == '.')
+                                    reportName.erase(i);
+                            }
+
+                            std::cout << reportName << "\n\n";
                             i++;
 
                             std::string sqlQuery = readSqlFile(entry.path().string());
