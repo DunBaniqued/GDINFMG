@@ -11,8 +11,8 @@ namespace fs = std::filesystem;
 int reset = 0;
 int column = 0;
 std::vector<int> maxSize;
-
 std::vector<std::string> table;
+std::vector<std::string> sColumnNames;
 
 static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
     if (reset == 0) {
@@ -20,6 +20,12 @@ static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
             table.push_back(azColName[i]);
             maxSize.push_back(0);
         }
+
+        sColumnNames.clear();
+        for (int i = 0; i < argc; i++) {
+            sColumnNames.push_back(azColName[i]);
+        }
+
         reset++;
         column = argc;
     }
@@ -58,49 +64,40 @@ static void printTable() {
             std::cout << "\n";
         }
     }
-
-    reset = 0;
-    column = 0;
-    table.clear();
-    maxSize.clear();
     std::cout << "\n";
 }
 
-std::vector<std::string> sColumnNames;
-int columnsReset = 0;
-static int columnNames(void* NotUsed, int argc, char** argv, char** azColName) {
-    
-    if (columnsReset != 0) return 0;
-
-    sColumnNames.clear();
-    for (int i = 0; i < argc; i++) {
-        sColumnNames.push_back(azColName[i]);
-    }
-
-    columnsReset++;
-    return 0;
+void Reset() {
+    reset = 0;
+    table.clear();
+    maxSize.clear();
 }
 
 using SqlValue = std::variant<int, double, std::string>;
 
-void bindValue(sqlite3_stmt* stmt, int index, const SqlValue& value) {
-    std::visit([&](auto&& arg) {
-        using T = std::decay_t<decltype(arg)>;
-        int rc = SQLITE_OK;
-        if constexpr (std::is_same_v<T, int>) {
-            rc = sqlite3_bind_int(stmt, index, arg);
-        }
-        else if constexpr (std::is_same_v<T, double>) {
-            rc = sqlite3_bind_double(stmt, index, arg);
-        }
-        else if constexpr (std::is_same_v<T, std::string>) {
-            rc = sqlite3_bind_text(stmt, index, arg.c_str(), -1, SQLITE_TRANSIENT);
-        }
-        if (rc != SQLITE_OK) {
-            std::cerr << "Bind error: " << sqlite3_errmsg(sqlite3_db_handle(stmt)) << "\n";
-        }
-        }, value);
+void insertRow(sqlite3* database, std::string table, std::vector<std::string> values) {
+    int i = 0;
+    char* errMsg = 0;
+    std::string update = "INSERT INTO " + table + " VALUES (";
 
+
+    for (i = 0; i < values.size(); i++) {
+        update += + " " + values[i] + ",";
+    }
+    if (!update.empty()) update.pop_back();
+    update += ");";
+
+    //SQL query checking
+    //std::cout << update << "\n";
+
+    const char* sql = update.c_str();
+
+    if (sqlite3_exec(database, sql, 0, 0, &errMsg) != SQLITE_OK) {
+        std::cerr << "SQL error: " << errMsg << "\n";
+        sqlite3_free(errMsg);
+    }
+    else {
+    }
 }
 
 void updateRow(sqlite3* database, std::string table, std::vector<std::string> column, std::vector<std::string> values) {
@@ -125,7 +122,6 @@ void updateRow(sqlite3* database, std::string table, std::vector<std::string> co
         sqlite3_free(errMsg);
     }
     else {
-        printTable();
     }
 }
 
@@ -144,8 +140,9 @@ void deleteRow(sqlite3* database, std::string table, std::vector<std::string> co
         sqlite3_free(errMsg);
     }
     else {
-        printTable();
     }
+
+
 }
 
 static std::string readSqlFile(const std::string& filename) {
@@ -160,6 +157,56 @@ static std::string readSqlFile(const std::string& filename) {
     return content;
 }
 
+void CreationEntity(sqlite3* database, std::string name) {
+    char* errMsg = 0;
+    std::string j;
+    std::vector<std::string> values;
+    int i;
+
+    std::string sqlQuery = readSqlFile("Tables/" + name + ".sql");
+    const char* query = sqlQuery.c_str();
+
+    if (sqlite3_exec(database, query, callback, 0, &errMsg) != SQLITE_OK) {
+        std::cerr << "SQL error: " << errMsg << "\n";
+        sqlite3_free(errMsg);
+    }
+    else {
+        std::cout << name << "\n\n";
+        printTable();
+        Reset();
+    }
+
+    for (i = 0; i < column; i++) {
+        std::cout << sColumnNames[i] << " : ";
+        std::cin >> j;
+        values.push_back(j);
+    }
+
+    system("CLS");
+    insertRow(database, "Salaries", values);
+
+    if (sqlite3_exec(database, query, callback, 0, &errMsg) != SQLITE_OK) {
+        std::cerr << "SQL error: " << errMsg << "\n";
+        sqlite3_free(errMsg);
+    }
+    else {
+        std::cout << name << "\n\n";
+        printTable();
+        Reset();
+    }
+}
+void DeletionEntity() {}
+void TeamRegistration(sqlite3* database) {
+    CreationEntity(database, "Team");
+}
+void PlayerRegistration(sqlite3* database) {
+    CreationEntity(database, "Player");
+}
+void MatchRegistration(sqlite3* database) {
+    CreationEntity(database, "Match");
+}
+void MatchDataUpdates() {}
+
 int main() {
     sqlite3* database;
     char* errMsg = 0;
@@ -173,12 +220,34 @@ int main() {
 
     std::string folderPath = "Reports";
     int i = 1;
-    char j = 0;
+    std::string j, organizer;
+
+    std::cout << "User Type:" << "\n\n";
+    std::cout << "1) Organizer" << "\n";
+    std::cout << "2) Player/Team" << "\n";
+    std::cout << "0) Exit" << "\n\n";
+    std::cout << "Number: ";
+    std::cin >> organizer;
+    if (organizer == "0") exit(0);
+
+    system("CLS");
 
     do {
-        i = 1, j = 0;
+        i = 1, j = "0";
 
-        std::cout << "What would you like to do?" << "\n\n";
+        if (organizer == "1") {
+            std::cout << "\n";
+            std::cout << "Organizer Priveleges" << "\n\n";
+            std::cout << "1) Creation of entity" << "\n";
+            std::cout << "2) Deletion of entity" << "\n";
+            std::cout << "3) Team Registration" << "\n";
+            std::cout << "4) Player Registration" << "\n";
+            std::cout << "5) Match Registration" << "\n";
+            std::cout << "6) Match Data Updates" << "\n";
+            i = 7;
+        }
+        
+        std::cout << "\n" << "Reports View" << "\n\n";
 
         try {
             // Iterate over the entries in the specified directory
@@ -201,55 +270,81 @@ int main() {
         catch (const fs::filesystem_error& e) {
             std::cerr << "Filesystem error: " << e.what() << std::endl;
         }
-
+        
         std::cout << "0) Exit" << "\n\n";
         std::cout << "Number: ";
         std::cin >> j;
-        if (j == '0') break;
-        std::cout << '\n';
+        if (j == "0") break;
 
         system("CLS");
 
-        i = 1;
-        try {
-            // Iterate over the entries in the specified directory
-            for (const auto& entry : fs::directory_iterator(folderPath)) {
-                // Check if the entry is a regular file
-                if (fs::is_regular_file(entry.path())) {
-                    if (i == (int) j - 48) {
-                        std::string reportName = entry.path().filename().string();
-                        for (int i = 0; i < reportName.size(); ++i) {
-                            if (reportName[i] == '_')
-                                reportName[i] = ' ';
-                            if (reportName[i] == '.')
-                                reportName.erase(i);
-                        }
+        if (organizer == "1") i = 7;
+        else i = 1;
 
-                        std::cout << reportName << " Report" << "\n\n";
+        if (std::stoi(j) >= i) {
+            try {
+                // Iterate over the entries in the specified directory
+                for (const auto& entry : fs::directory_iterator(folderPath)) {
+                    // Check if the entry is a regular file
+                    if (fs::is_regular_file(entry.path())) {
+                        if (i == std::stoi(j)) {
+                            std::string reportName = entry.path().filename().string();
+                            for (int i = 0; i < reportName.size(); ++i) {
+                                if (reportName[i] == '_')
+                                    reportName[i] = ' ';
+                                if (reportName[i] == '.')
+                                    reportName.erase(i);
+                            }
+
+                            std::cout << reportName << " Report" << "\n\n";
+                            i++;
+
+                            std::string sqlQuery = readSqlFile(entry.path().string());
+                            const char* query = sqlQuery.c_str();
+
+                            if (sqlite3_exec(database, query, callback, 0, &errMsg) != SQLITE_OK) {
+                                std::cerr << "SQL error: " << errMsg << "\n";
+                                sqlite3_free(errMsg);
+                            }
+                            else {
+                                printTable();
+                                Reset();
+                            }
+
+                            break;
+                        }
                         i++;
-
-                        std::string sqlQuery = readSqlFile(entry.path().string());
-                        const char* query = sqlQuery.c_str();
-
-                        if (sqlite3_exec(database, query, callback, 0, &errMsg) != SQLITE_OK) {
-                            std::cerr << "SQL error: " << errMsg << "\n";
-                            sqlite3_free(errMsg);
-                        }
-                        else {
-                            printTable();
-                        }
-
-                        break;
                     }
-                    i++;
                 }
             }
+            catch (const fs::filesystem_error& e) {
+                std::cerr << "Filesystem error: " << e.what() << std::endl;
+            }
         }
-        catch (const fs::filesystem_error& e) {
-            std::cerr << "Filesystem error: " << e.what() << std::endl;
+        else {
+            switch (std::stoi(j))
+            {
+            case 1: 
+                std::cout << "Table Name : ";
+                std::cin >> j;
+                CreationEntity(database, j);
+                    break;
+            case 2: DeletionEntity();
+                    break;
+            case 3: TeamRegistration(database);
+                    break;
+            case 4: PlayerRegistration(database);
+                    break;
+            case 5: MatchRegistration(database);
+                    break;
+            case 6: MatchDataUpdates();
+                    break;
+            default:
+                break;
+            }
         }
 
-    } while (j != '0');
+    } while (j != "0");
 
 
     sqlite3_close(database);
