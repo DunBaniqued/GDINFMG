@@ -3,6 +3,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <variant>
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -65,6 +66,88 @@ static void printTable() {
     std::cout << "\n";
 }
 
+std::vector<std::string> sColumnNames;
+int columnsReset = 0;
+static int columnNames(void* NotUsed, int argc, char** argv, char** azColName) {
+    
+    if (columnsReset != 0) return 0;
+
+    sColumnNames.clear();
+    for (int i = 0; i < argc; i++) {
+        sColumnNames.push_back(azColName[i]);
+    }
+
+    columnsReset++;
+    return 0;
+}
+
+using SqlValue = std::variant<int, double, std::string>;
+
+void bindValue(sqlite3_stmt* stmt, int index, const SqlValue& value) {
+    std::visit([&](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        int rc = SQLITE_OK;
+        if constexpr (std::is_same_v<T, int>) {
+            rc = sqlite3_bind_int(stmt, index, arg);
+        }
+        else if constexpr (std::is_same_v<T, double>) {
+            rc = sqlite3_bind_double(stmt, index, arg);
+        }
+        else if constexpr (std::is_same_v<T, std::string>) {
+            rc = sqlite3_bind_text(stmt, index, arg.c_str(), -1, SQLITE_TRANSIENT);
+        }
+        if (rc != SQLITE_OK) {
+            std::cerr << "Bind error: " << sqlite3_errmsg(sqlite3_db_handle(stmt)) << "\n";
+        }
+        }, value);
+
+}
+
+void updateRow(sqlite3* database, std::string table, std::vector<std::string> column, std::vector<std::string> values) {
+    int i = 0;
+    char* errMsg = 0;
+    std::string update = "UPDATE " + table + " SET";
+
+
+    for (i = 1; i < values.size(); i++) {
+        update += " " + column[i] + " = " + values[i] + ",";
+    }
+    if (!update.empty()) update.pop_back();
+    update += " where " + column[0] + " = " + values[0] + ";";
+
+    //SQL query checking
+    //std::cout << update << "\n";
+
+    const char* sql = update.c_str();
+
+    if (sqlite3_exec(database, sql, 0, 0, &errMsg) != SQLITE_OK) {
+        std::cerr << "SQL error: " << errMsg << "\n";
+        sqlite3_free(errMsg);
+    }
+    else {
+        printTable();
+    }
+}
+
+void deleteRow(sqlite3* database, std::string table, std::vector<std::string> column, int id) {
+    char* errMsg = 0;
+    std::string dlt = "DELETE From " + table
+                    + " where " + column[0] + " = " + std::to_string(id);
+
+    const char* sql = dlt.c_str();
+
+    //SQL query checking
+    //std::cout << dlt << "\n";
+
+    if (sqlite3_exec(database, sql, 0, 0, &errMsg) != SQLITE_OK) {
+        std::cerr << "SQL error: " << errMsg << "\n";
+        sqlite3_free(errMsg);
+    }
+    else {
+        printTable();
+    }
+}
+
 static std::string readSqlFile(const std::string& filename) {
     std::ifstream file(filename);
     if (!file.is_open()) {
@@ -122,7 +205,7 @@ int main() {
         std::cout << "0) Exit" << "\n\n";
         std::cout << "Number: ";
         std::cin >> j;
-        if (j == '0') exit(0);
+        if (j == '0') break;
         std::cout << '\n';
 
         system("CLS");
@@ -168,7 +251,7 @@ int main() {
 
     } while (j != '0');
 
-    
+
     sqlite3_close(database);
     return 0;
 }
