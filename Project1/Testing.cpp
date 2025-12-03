@@ -252,13 +252,13 @@ void DeletionEntity(sqlite3* database, std::string name) {
 }
 
 void TeamRegistration(sqlite3* database) {
-    CreationEntity(database, "Team");
+    CreationEntity(database, "Teams");
 }
 void PlayerRegistration(sqlite3* database) {
-    CreationEntity(database, "Player");
+    CreationEntity(database, "Players");
 }
 void MatchRegistration(sqlite3* database) {
-    CreationEntity(database, "Match");
+    CreationEntity(database, "Matches");
 }
 
 void MatchDataUpdates(sqlite3* database, std::string name) {
