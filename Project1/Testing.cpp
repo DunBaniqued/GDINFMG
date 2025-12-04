@@ -40,8 +40,8 @@ static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
 static void printTable() {
     int i = 0, j = 0, k = 0;
 
-    for (std::string row : table) {
-        if (row.size() > maxSize.at(i)) maxSize.at(i) = row.size();
+    for (int l = maxSize.size(); l < table.size();  l++) {
+        if (table[l].size() > maxSize.at(i)) maxSize.at(i) = table[l].size();
 
         i++;
         if (i >= maxSize.size()) i = 0;
@@ -88,7 +88,7 @@ void insertRow(sqlite3* database, std::string table, std::vector<std::string> va
     insert += ");";
 
     //SQL query checking
-    std::cout << insert << "\n";
+    //std::cout << insert << "\n";
 
     const char* sql = insert.c_str();
 
@@ -252,17 +252,7 @@ void DeletionEntity(sqlite3* database, std::string name) {
     }
 }
 
-void TeamRegistration(sqlite3* database) {
-    CreationEntity(database, "Teams");
-}
-void PlayerRegistration(sqlite3* database) {
-    CreationEntity(database, "Players");
-}
-void MatchRegistration(sqlite3* database) {
-    CreationEntity(database, "Matches");
-}
-
-void MatchDataUpdates(sqlite3* database, std::string name) {
+void UpdateEntity(sqlite3* database, std::string name) {
     char* errMsg = 0;
     std::string id, value;
     std::vector<std::string> values;
@@ -300,6 +290,20 @@ void MatchDataUpdates(sqlite3* database, std::string name) {
         printTable();
         Reset();
     }
+}
+
+void TeamRegistration(sqlite3* database) {
+    CreationEntity(database, "Teams");
+}
+void PlayerRegistration(sqlite3* database) {
+    CreationEntity(database, "Players");
+}
+void MatchRegistration(sqlite3* database) {
+    CreationEntity(database, "Matches");
+}
+
+void MatchDataUpdates(sqlite3* database) {
+    UpdateEntity(database, "Matches");
 }
 
 int main() {
@@ -504,9 +508,7 @@ int main() {
             case 5: MatchRegistration(database);
                     break;
             case 6: 
-                std::cout << "Table Name : ";
-                std::cin >> j; 
-                MatchDataUpdates(database, j);
+                MatchDataUpdates(database);
                     break;
             default:
                 break;
