@@ -78,19 +78,19 @@ using SqlValue = std::variant<int, double, std::string>;
 void insertRow(sqlite3* database, std::string table, std::vector<std::string> values) {
     int i = 0;
     char* errMsg = 0;
-    std::string update = "INSERT INTO " + table + " VALUES (";
+    std::string insert = "INSERT INTO " + table + " VALUES (";
 
 
     for (i = 0; i < values.size(); i++) {
-        update += + " " + values[i] + ",";
+        insert += + " " + values[i] + ",";
     }
-    if (!update.empty()) update.pop_back();
-    update += ");";
+    if (!insert.empty()) insert.pop_back();
+    insert += ");";
 
     //SQL query checking
-    //std::cout << update << "\n";
+    std::cout << insert << "\n";
 
-    const char* sql = update.c_str();
+    const char* sql = insert.c_str();
 
     if (sqlite3_exec(database, sql, 0, 0, &errMsg) != SQLITE_OK) {
         std::cerr << "SQL error: " << errMsg << "\n";
@@ -203,7 +203,8 @@ void CreationEntity(sqlite3* database, std::string name) {
     }
 
     system("CLS");
-    insertRow(database, "Salaries", values);
+    insertRow(database, name, values);
+    //updateAttribute(database, database, sColumnNames[i], std::string value, std::string id, int columnNumber)
 
     if (sqlite3_exec(database, query, callback, 0, &errMsg) != SQLITE_OK) {
         std::cerr << "SQL error: " << errMsg << "\n";
@@ -337,7 +338,7 @@ int main() {
             std::cout << "3) Team Registration" << "\n";
             std::cout << "4) Player Registration" << "\n";
             std::cout << "5) Match Registration" << "\n";
-            std::cout << "6) Match Data Updates" << "\n";
+            std::cout << "6) Data Updates" << "\n";
             i = 7;
         }
         
